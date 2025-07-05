@@ -25,7 +25,14 @@ class DocsTestProject(
         id(asDocsTestId(model, os))
         name = "Docs Test - ${testJava.version.toCapitalized()} ${os.asName()}"
     }) {
-    val docsTests = testTypes.map { DocsTest(model, stage, os, testJava, it) }
+    val docsTests =
+        testTypes.map {
+            if (os == Os.LINUX) {
+                DocsTest(model, stage, os, testJava, it, ParallelizationMethod.TestDistribution.extraBuildParameters)
+            } else {
+                TeamCityParallelDocsTest(model, stage, os, testJava, it, 4)
+            }
+        }
 
     init {
         docsTests.forEach(this::buildType)
@@ -56,29 +63,16 @@ enum class DocsTestType(
     CONFIG_CACHE_DISABLED(false, "DocsTest", "Docs Test"),
 }
 
-class DocsTest(
+open class DocsTest(
     model: CIBuildModel,
     stage: Stage,
     os: Os,
     testJava: JvmCategory,
     docsTestType: DocsTestType,
+    parallelizationParameters: String,
 ) : OsAwareBaseGradleBuildType(os = os, stage = stage, init = {
         id("${model.projectId}_${docsTestType.docsTestName}_${os.asName()}")
         name = "${docsTestType.docsTestDesc} - ${testJava.version.toCapitalized()} ${os.asName()}"
-        val parallelizationMethod =
-            if (os == Os.LINUX) {
-                ParallelizationMethod.TestDistribution
-            } else {
-                TeamCityParallelTests(4)
-            }
-
-        if (parallelizationMethod is TeamCityParallelTests) {
-            features {
-                parallelTests {
-                    this.numberOfBatches = parallelizationMethod.numberOfBatches
-                }
-            }
-        }
 
         applyTestDefaults(
             model,
@@ -90,10 +84,38 @@ class DocsTest(
             extraParameters =
                 listOf(
                     buildScanTagParam(docsTestType.docsTestName),
-                    parallelizationMethod.extraBuildParameters,
+                    parallelizationParameters,
                     "-PenableConfigurationCacheForDocsTests=${docsTestType.ccEnabled}",
                     "-PtestJavaVersion=${testJava.version.major}",
                     "-PtestJavaVendor=${testJava.vendor.name.lowercase()}",
                 ).joinToString(" "),
         )
     })
+
+class TeamCityParallelDocsTest(
+    model: CIBuildModel,
+    stage: Stage,
+    os: Os,
+    testJava: JvmCategory,
+    docsTestType: DocsTestType,
+    parallelism: Int,
+) : DocsTest(
+        model,
+        stage,
+        os,
+        testJava,
+        docsTestType,
+        TeamCityParallelTests(parallelism).extraBuildParameters + " -PcurrentBatch=%currentBatch%",
+    ) {
+    init {
+        features {
+            parallelTests {
+                numberOfBatches = parallelism
+            }
+        }
+
+        params {
+            text("currentBatch", "%teamcity.build.parallelTests.currentBatch%", allowEmpty = true)
+        }
+    }
+}

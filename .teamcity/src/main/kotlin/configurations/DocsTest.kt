@@ -105,7 +105,7 @@ class TeamCityParallelDocsTest(
         os,
         testJava,
         docsTestType,
-        TeamCityParallelTests(parallelism).extraBuildParameters + " -PcurrentBatch=%currentBatch%",
+        TeamCityParallelTests(parallelism).extraBuildParameters + " -PteamCityParallelTestsBatch=%teamCityParallelTestsBatch%",
     ) {
     init {
         features {
@@ -115,7 +115,8 @@ class TeamCityParallelDocsTest(
         }
 
         params {
-            text("currentBatch", "%teamcity.build.parallelTests.currentBatch%", allowEmpty = true)
+            // Could be "1/1" (for initial run) or "1/4", "2/4", "3/4", "4/4" (for batched run)
+            text("teamCityParallelTestsBatch", "%teamcity.build.parallelTests.currentBatch%/%teamcity.build.parallelTests.totalBatches%", allowEmpty = true)
         }
     }
 }

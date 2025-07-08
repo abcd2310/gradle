@@ -307,7 +307,10 @@ trait ToolingApiSpec {
             config.delegate = actionExecuter
             config.call()
 
+            def jvmArgs = executer.implicitBuildJvmArgs
+
             model = actionExecuter
+                .addJvmArguments(jvmArgs)
                 .withArguments(args)
                 .setStandardOutput(new TeeOutputStream(output, System.out))
                 .setStandardError(new TeeOutputStream(error, System.err))

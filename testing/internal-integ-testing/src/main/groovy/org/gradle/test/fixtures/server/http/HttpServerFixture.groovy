@@ -16,7 +16,6 @@
 
 package org.gradle.test.fixtures.server.http
 
-
 import groovy.transform.CompileStatic
 import org.eclipse.jetty.http.HttpVersion
 import org.eclipse.jetty.server.Connector
@@ -32,14 +31,11 @@ import org.eclipse.jetty.server.handler.HandlerCollection
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.gradle.api.Action
 import org.gradle.internal.Actions
-import org.gradle.util.ports.FixedAvailablePortAllocator
-import org.gradle.util.ports.PortAllocator
 
 import java.util.function.Consumer
 
 @CompileStatic
 trait HttpServerFixture {
-    private final PortAllocator portAllocator = FixedAvailablePortAllocator.instance
     private final Server server = new Server()
     private ServerConnector connector
     private ServerConnector sslConnector
@@ -151,22 +147,19 @@ trait HttpServerFixture {
     }
 
     private void releaseConnector() {
-        def port = connector.port
         server.removeConnector(connector)
         connector.stop()
-        portAllocator.releasePort(port)
     }
 
     private boolean createConnector() {
-        def assignedPort = portAllocator.assignPort()
         connector = new ServerConnector(server)
-        connector.port = assignedPort
+        connector.port = 0
         server.addConnector(connector)
         try {
             connector.start()
             return true
         } catch (e) {
-            println "Unable to start connector on port ${assignedPort}"
+            println "Unable to start connector on port 0"
         }
         return false
     }
@@ -216,7 +209,7 @@ trait HttpServerFixture {
 
         sslConnector = new ServerConnector(server,
             connectionFactory, httpConnectionFactory)
-        sslConnector.setPort(portAllocator.assignPort())
+        sslConnector.setPort(0)
         server.addConnector(sslConnector)
         if (server.started) {
             sslConnector.start()
@@ -237,11 +230,9 @@ trait HttpServerFixture {
     }
 
     private void shutdownConnector(ServerConnector connector) {
-        def port = connector.port
         connector.stop()
         connector.close()
         server?.removeConnector(connector)
-        portAllocator.releasePort(port)
     }
 }
 
